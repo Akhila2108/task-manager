@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from .schemas import TaskCreate, TaskUpdate
 from app import models
 
 def get_tasks(db: Session):
@@ -7,25 +8,34 @@ def get_tasks(db: Session):
 def get_task(db: Session, task_id: int):
     return db.query(models.Task).filter(models.Task.id == task_id).first()
 
-def create_task(db: Session, title: str, description: str = "", is_completed: bool = False):
-    task = models.Task(title=title, description=description, is_completed=is_completed)
-    db.add(task)
+def create_task(db: Session, task: TaskCreate):
+    db_task = models.Task(
+        title=task.title,
+        description=task.description,
+        is_completed=task.is_completed
+    )
+    db.add(db_task)
     db.commit()
-    db.refresh(task)
-    return task
+    db.refresh(db_task)
+    return db_task
 
-def update_task(db: Session, task_id: int, title: str = None, description: str = None, is_completed: bool = None):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if task:
-        if title is not None:
-            task.title = title
-        if description is not None:
-            task.description = description
-        if is_completed is not None:
-            task.is_completed = is_completed
-        db.commit()
-        db.refresh(task)
-    return task
+def update_task(db: Session, task_id: int, task: TaskUpdate):
+    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if db_task is None:
+        return None
+
+    if task.title is not None:
+        db_task.title = task.title
+    if task.description is not None:
+        db_task.description = task.description
+    if task.is_completed is not None:
+        db_task.is_completed = task.is_completed
+
+    db.commit()
+    db.refresh(db_task)
+    return db_task
+
+
 
 def delete_task(db: Session, task_id: int):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
