@@ -1,19 +1,10 @@
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import List
-from app import crud, models, schemas
-from app.database import engine, get_db, SessionLocal
+from app import auth, crud, models, schemas
+from app.database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
-
-# Dependency for getting DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @app.get("/tasks")
 def read_tasks(db: Session = Depends(get_db)):
@@ -43,3 +34,23 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return {"detail": "Task deleted successfully"}
+
+
+@app.post("/signup", response_model=schemas.UserPublic, status_code=201)
+def signup(user_in: schemas.UserSignup, db: Session = Depends(get_db)):
+    user = crud.create_user(db, user_in)
+    if user is None:
+        raise HTTPException(status_code=409, detail="Email already registered")
+    return user
+
+
+@app.post("/login", response_model=schemas.Token)
+def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = crud.authenticate_user(db, credentials.email, credentials.password)
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+        )
+    access_token = auth.create_access_token(subject=str(user.id))
+    return schemas.Token(access_token=access_token)

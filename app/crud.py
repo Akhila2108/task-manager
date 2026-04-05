@@ -1,6 +1,33 @@
 from sqlalchemy.orm import Session
-from .schemas import TaskCreate, TaskUpdate
+from .schemas import TaskCreate, TaskUpdate, UserSignup
+from . import security
 from app import models
+
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
+
+
+def create_user(db: Session, signup: UserSignup):
+    if get_user_by_email(db, signup.email):
+        return None
+    db_user = models.User(
+        email=signup.email,
+        hashed_password=security.hash_password(signup.password),
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def authenticate_user(db: Session, email: str, password: str):
+    user = get_user_by_email(db, email)
+    if user is None:
+        return None
+    if not security.verify_password(password, user.hashed_password):
+        return None
+    return user
 
 def get_tasks(db: Session):
     return db.query(models.Task).all()
